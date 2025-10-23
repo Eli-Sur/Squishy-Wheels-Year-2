@@ -1,1 +1,482 @@
-{"mode":"Text","hardwareTarget":"brain","textContent":"#pragma region VEXcode Generated Robot Configuration\n// Make sure all required headers are included.\n#include <stdio.h>\n#include <stdlib.h>\n#include <stdbool.h>\n#include <math.h>\n#include <string.h>\n\n\n#include \"vex.h\"\n\nusing namespace vex;\n\n// Brain should be defined by default\nbrain Brain;\n\n\n// START V5 MACROS\n#define waitUntil(condition)                                                   \\\n  do {                                                                         \\\n    wait(5, msec);                                                             \\\n  } while (!(condition))\n\n#define repeat(iterations)                                                     \\\n  for (int iterator = 0; iterator < iterations; iterator++)\n// END V5 MACROS\n\n\n// Robot configuration code.\ncontroller Controller1 = controller(primary);\nmotor BackLeft = motor(PORT4, ratio18_1, false);\n\nmotor BackRight = motor(PORT1, ratio18_1, true);\n\nmotor FrontRight = motor(PORT2, ratio18_1, true);\n\nmotor FrontLeft = motor(PORT3, ratio18_1, false);\n\nmotor BottomIntake = motor(PORT11, ratio18_1, false);\n\nmotor TopPole = motor(PORT13, ratio18_1, true);\n\nmotor TopIntake = motor(PORT12, ratio18_1, false);\n\nmotor MiddlePole = motor(PORT14, ratio18_1, false);\n\n/*vex-vision-config:begin*/\nvision::signature Vision20__BLUECUBE = vision::signature (1, -4369, -2803, -3586,6593, 8843, 7718,2.5, 0);\nvision::signature Vision20__REDCUBE = vision::signature (2, 11239, 13065, 12152,-1663, -429, -1046,2.5, 0);\nvision Vision20 = vision (PORT20, 50, Vision20__BLUECUBE, Vision20__REDCUBE);\n/*vex-vision-config:end*/\nmotor Shaker = motor(PORT5, ratio36_1, false);\n\n\n\n// generating and setting random seed\nvoid initializeRandomSeed(){\n  int systemTime = Brain.Timer.systemHighResolution();\n  double batteryCurrent = Brain.Battery.current();\n  double batteryVoltage = Brain.Battery.voltage(voltageUnits::mV);\n\n  // Combine these values into a single integer\n  int seed = int(batteryVoltage + batteryCurrent * 100) + systemTime;\n\n  // Set the seed\n  srand(seed);\n}\n\n\n\nvoid vexcodeInit() {\n\n  //Initializing random seed.\n  initializeRandomSeed(); \n}\n\n\n// Helper to make playing sounds from the V5 in VEXcode easier and\n// keeps the code cleaner by making it clear what is happening.\nvoid playVexcodeSound(const char *soundName) {\n  printf(\"VEXPlaySound:%s\\n\", soundName);\n  wait(5, msec);\n}\n\n\n\n// define variable for remote controller enable/disable\nbool RemoteControlCodeEnabled = true;\n\n#pragma endregion VEXcode Generated Robot Configuration\n\n// ----------------------------------------------------------------------------\n//                                                                            \n//    Project:                                               \n//    Author:\n//    Created:\n//    Configuration:        \n//                                                                            \n// ----------------------------------------------------------------------------\n\n// Include the V5 Library\n#include \"vex.h\"\n\n// Allows for easier use of the VEX Library\nusing namespace vex;\n\n// Begin project code\n\nbool aboveLine(double x, double y, double px1, double py1, double px2, double py2) {\n  return (py2 - py1) * (x - px1) / (px2 - px1) + py1 <= y;\n}\n\nvoid drawStar() {\n  double pi = 3.1415926535;\n  double xVals[5] = {cos(pi / 10.0), 0, cos(pi - pi / 10.0), cos(pi + 3 * pi / 10), cos(2 * pi - 3 * pi / 10)};\n  double yVals[5] = {sin(pi / 10.0), 1, sin(pi - pi / 10.0), sin(pi + 3 * pi / 10), sin(2 * pi - 3 * pi / 10)};\n\n  for(int x = 0; x < 239; x++) {\n    double mappedX = (x * 2.0 / 239.0 - 1) * -1;\n    for(int y = 10; y < 249; y++) {\n      double mappedY = ((y-10) * 2.0 / 239.0 - 1) * -1;\n\n      if(mappedY > yVals[0]) {\n        if(!aboveLine(mappedX, mappedY, xVals[1], yVals[1], xVals[3], yVals[3]) && !aboveLine(mappedX, mappedY, xVals[1], yVals[1], xVals[4], yVals[4])) {\n          Brain.Screen.drawPixel(x, y);\n        }\n      } else if(aboveLine(mappedX, mappedY, xVals[2], yVals[2], xVals[4], yVals[4])) {\n        if(aboveLine(mappedX, mappedY, xVals[0], yVals[0], xVals[3], yVals[3])) {\n          Brain.Screen.drawPixel(x, y);\n        } else if(!aboveLine(mappedX, mappedY, xVals[1], yVals[1], xVals[4], yVals[4])) {\n          Brain.Screen.drawPixel(x, y);\n        }\n      } else if(aboveLine(mappedX, mappedY, xVals[0], yVals[0], xVals[3], yVals[3]) && !aboveLine(mappedX, mappedY, xVals[1], yVals[1], xVals[3], yVals[3])) {\n        Brain.Screen.drawPixel(x, y);\n      }\n    }\n  }\n}\n\nvoid drawTexanFlag() {\n  Brain.Screen.clearScreen();\n  Brain.Screen.setFillColor(blue);\n  Brain.Screen.drawRectangle(0, 0, 239, 239);\n  Brain.Screen.setFillColor(white);\n  Brain.Screen.drawRectangle(239, 0, 239, 239 / 2);\n  Brain.Screen.setFillColor(red);\n  Brain.Screen.drawRectangle(239, 239 / 2, 239, 239);\n  \n  Brain.Screen.setFillColor(white);\n  drawStar();\n}\n\ndouble biState = 0;\ndouble tpState = 0;\ndouble tiState = 0;\ndouble mpState = 0;\ndouble counter = 0;\ndouble armCounter = 0;\n\nbool isIntaking = false;\nbool isOutaking = false;\nbool isRedAlliance = true;\nbool isRightSide = true;\nbool isShakerSet = false;\n\nvoid setAlliance() {\n  int brainWidth = 480;\n  int brainHeight = 240;\n  Brain.Screen.clearScreen();\n  Brain.Screen.setFillColor(red);\n  Brain.Screen.drawRectangle(0, 0, brainWidth / 2, brainHeight);\n  Brain.Screen.setFillColor(blue);\n  Brain.Screen.drawRectangle(brainWidth / 2, 0, brainWidth / 2, brainHeight);\n  while (!Brain.Screen.pressing()) {\n    wait(0.1, seconds);\n  }\n  while (Brain.Screen.pressing()) {\n    wait(0.1, seconds);\n  }\n  if(Brain.Screen.xPosition() < brainWidth / 2) {\n    isRedAlliance = true;\n  } else {\n    isRedAlliance = false;\n  }\n  Brain.Screen.clearScreen();\n\n  Brain.Screen.setFillColor(orange);\n  Brain.Screen.drawRectangle(0, 0, brainWidth / 2, brainHeight);\n  Brain.Screen.setFillColor(yellow);\n  Brain.Screen.drawRectangle(brainWidth / 2, 0, brainWidth / 2, brainHeight);\n  while (!Brain.Screen.pressing()) {\n    wait(0.1, seconds);\n  }\n  if(Brain.Screen.xPosition() > brainWidth / 2) {\n    isRightSide = true;\n  } else {\n    isRightSide = false;\n  }\n\n  if(isRedAlliance) {\n    Brain.Screen.setFillColor(red);\n  } else {\n    Brain.Screen.setFillColor(blue);\n  }\n  Brain.Screen.drawRectangle(0, 0, brainWidth, brainHeight);\n  Brain.Screen.setCursor(1, 1);\n  Brain.Screen.print(isRightSide ? \"Right Auton\" : \"Left Auton\");\n}\n\nvoid intakeStop() {\n  isIntaking = false;\n  isOutaking = false;\n  biState = 0;\n  tpState = 0;\n  tiState = 0;\n  mpState = 0;\n}\n\nvoid intakeScoreTop() {\n  isIntaking = false;\n  isOutaking = true;\n  biState = 1;\n  tpState = 1;\n  tiState = 1;\n  mpState = 1;\n}\n\nvoid spinToScoreMiddle() {\n  biState = 1;\n  tpState = 0.5;\n  tiState = -1;\n  mpState = 0;\n}\n\nvoid intakeScoreMiddle() {\n  isOutaking = true;\n  isIntaking = false;\n  spinToScoreMiddle();\n  mpState = 1;\n}\n\nvoid intakeStore() {\n  isIntaking = true;\n  isOutaking = false;\n  biState = 1;\n  tpState = -1;\n  tiState = 1;\n  mpState = 0;\n}\n\nvoid intakeUnstore() {\n  isIntaking = false;\n  isOutaking = true;\n  biState = -1;\n  tpState = -1;\n  tiState = -1;\n  mpState = 1;\n}\n\nvoid setShaker() {\n  Shaker.setMaxTorque(1, percent);\n  Shaker.spin(forward, 10, volt);\n  wait(1, seconds);\n  Shaker.setPosition(45, degrees);\n  Shaker.spinToPosition(0, degrees, false);\n  Shaker.setMaxTorque(100, percent);\n  isShakerSet = true;\n}\n\nvoid updateMovementMotors() {\n  FrontRight.spin(forward, (Controller1.Axis3.position() - Controller1.Axis1.position()) / 90.0 * 12, volt);\n  BackRight.spin(forward, (Controller1.Axis3.position() - Controller1.Axis1.position()) / 90.0 * 12, volt);\n  FrontLeft.spin(forward, (Controller1.Axis3.position() + Controller1.Axis1.position()) / 90.0 * 12, volt);\n  BackLeft.spin(forward, (Controller1.Axis3.position() + Controller1.Axis1.position()) / 90.0 * 12, volt);\n}\n\nbool doesSeeFriendlyCube() {\n  vision::signature friendlyCube = (isRedAlliance ? Vision20__REDCUBE : Vision20__BLUECUBE);\n  Vision20.takeSnapshot(friendlyCube);\n  return Vision20.objects[0].exists;\n}\n\nbool doesSeeEnemyCube() {\n  vision::signature hostileCube = (isRedAlliance ? Vision20__BLUECUBE : Vision20__REDCUBE);\n  Vision20.takeSnapshot(hostileCube);\n  return Vision20.objects[0].exists;\n}\n\nvoid updateColorFilter() {\n  if(!isIntaking) { return; }\n\n  if(doesSeeEnemyCube() && counter > 2) {\n    spinToScoreMiddle();\n  } else if(doesSeeFriendlyCube()) {\n    counter = 0;\n    intakeStore();\n  }\n\n  counter++;\n}\n\n\n\nvoid updateShakerArm() {\n  if(isOutaking) {\n    int pos = armCounter > 10 ? -45 : 45;\n    Shaker.spinToPosition(pos, degrees, false);\n  } else if(Shaker.isDone()) {\n    Shaker.spinToPosition(50, degrees, false);\n  }\n  if(armCounter > 20) {\n    armCounter = 0;\n  }\n  armCounter++;\n}\n\nvoid updateIntakeMotors() {\n  updateColorFilter();\n  BottomIntake.spin(forward, 10 * biState, volt);\n  TopPole.spin(forward, 11 * tpState, volt);\n  TopIntake.spin(forward, 5.5 * tiState, volt);\n  MiddlePole.spin(forward, 5.5 * mpState, volt);\n\n  updateShakerArm();\n}\n\nvoid driveForeward(double squares) {\n  double constant = 24 / (4 * 3.1415926535);\n  BackRight.spinFor(forward, squares * constant, turns, false);\n  FrontRight.spinFor(forward, squares * constant, turns, false);\n  BackLeft.spinFor(forward, squares * constant, turns, false);\n  FrontLeft.spinFor(forward, squares * constant, turns);\n  // wait(0.1, seconds);\n}\n\nvoid turnRight(double degree) {\n  BackRight.setPosition(0, degrees);\n  FrontRight.setPosition(0, degrees);\n  BackLeft.setPosition(0, degrees);\n  FrontLeft.setPosition(0, degrees);\n  // double constant = sqrt(4.5 * 4.5 + 11.75 * 11.75) / 4.0 / 180.0 * 2 / 3;\n  double d = sqrt(4.5 * 4.5 + 11.75 * 11.75);\n  double constant = d / 4.0 / 360.0 / 3 * 4;\n  BackRight.spinFor(reverse, degree * constant, turns, false);\n  FrontRight.spinFor(reverse, degree * constant, turns, false);\n  BackLeft.spinFor(forward, degree * constant, turns, false);\n  FrontLeft.spinFor(forward, degree * constant, turns);\n  // wait(0.1, seconds);\n}\n\nvoid turnLeft(double degree) {\n  turnRight(-degree);\n}\n\nvoid setVelocities(double per) {\n  BackLeft.setVelocity(per, percent);\n  BackRight.setVelocity(per, percent);\n  FrontRight.setVelocity(per, percent);\n  FrontLeft.setVelocity(per, percent);\n}\n\nvoid setStoppingTo(vex::brakeType b) {\n  BackLeft.setStopping(b);\n  BackRight.setStopping(b);\n  FrontRight.setStopping(b);\n  FrontLeft.setStopping(b);\n}\n\nvoid rightAutonomous() {\n  setVelocities(80);\n  setStoppingTo(hold);\n  intakeStore();\n  updateIntakeMotors();\n  // turnLeft(3);\n  driveForeward(0.5);\n  turnRight(80);\n  driveForeward(0.3);\n  turnLeft(90 * 4 / 3 + 30);\n  setVelocities(40);\n  driveForeward(1);\n  // driveForeward(0.6);\n  wait(0.5, seconds);\n  driveForeward(-0.25);\n  turnLeft(60);\n  driveForeward(0.75);\n  intakeUnstore();\n  for(int i = 0; i < 100; i++) {\n    updateIntakeMotors();\n    wait(0.05, seconds);\n  }\n  intakeStop();\n  updateIntakeMotors();\n  driveForeward(-0.5);\n  \n\n  // turnRight(-90);\n  // driveForeward(0.6);\n  // driveForeward(-0.6);\n  // turnRight(90);\n}\nvoid leftAutonomous() {\n  setVelocities(80);\n  setStoppingTo(hold);\n  // turnLeft(2);\n  intakeStore();\n  driveForeward(1);\n  turnLeft(55);\n  updateIntakeMotors();\n  setVelocities(20);\n  driveForeward(0.76);\n  \n  wait(0.5, seconds);\n  turnRight(72);\n  driveForeward(0.7);\n  intakeScoreMiddle();\n  for(int i = 0; i < 100; i++) {\n    updateIntakeMotors();\n    wait(0.05, seconds);\n  }\n  intakeStop();\n  updateIntakeMotors();\n  driveForeward(-0.5);\n}\n\nvoid autonomous() {\n  setShaker();\n  drawTexanFlag();\n  if(isRightSide) {\n    rightAutonomous();\n  } else {\n    leftAutonomous();\n  }\n\n}\n\nvoid userControl() {\n  if(!isShakerSet) {\n    setShaker();\n  }\n  // place driver control in this while loop\n  while (true) {\n    updateMovementMotors();\n    updateIntakeMotors();\n    wait(20, msec);\n  }\n}\n\nvoid turnRightTester() {\n  turnRight(90);\n}\n\nvoid preAutonomous() {\n  // actions to do when the program starts\n  Controller1.ButtonX.pressed(intakeStop);\n  Controller1.ButtonR1.pressed(intakeScoreTop);\n  Controller1.ButtonR2.pressed(intakeScoreMiddle);\n  Controller1.ButtonL1.pressed(intakeStore);\n  Controller1.ButtonL2.pressed(intakeUnstore);\n  Controller1.ButtonA.pressed(turnRightTester);\n  setAlliance();\n  \n  wait(1, seconds);\n}\n\nint main() {\n  // Initializing Robot Configuration. DO NOT REMOVE!\n  vexcodeInit();\n  // create competition instance\n  competition Competition;\n\n  // Set up callbacks for autonomous and driver control periods.\n  Competition.autonomous(autonomous);\n  Competition.drivercontrol(userControl);\n\n  // Run the pre-autonomous function.\n  preAutonomous();\n\n  // Prevent main from exiting with an infinite loop.\n  while (true) {\n    wait(100, msec);\n  }\n}","textLanguage":"cpp","robotConfig":[{"port":[],"name":"Controller1","customName":false,"deviceType":"Controller","deviceClass":"controller","setting":{"left":"","leftDir":"false","right":"","rightDir":"false","upDown":"","upDownDir":"false","xB":"","xBDir":"false","drive":"none","id":"primary"},"triportSourcePort":22},{"port":[4],"name":"BackLeft","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"false","fwd":"forward","rev":"reverse","gear":"ratio18_1","id":"partner"},"triportSourcePort":22},{"port":[1],"name":"BackRight","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"true","fwd":"forward","rev":"reverse","gear":"ratio18_1"},"triportSourcePort":22},{"port":[2],"name":"FrontRight","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"true","fwd":"forward","rev":"reverse","gear":"ratio18_1"},"triportSourcePort":22},{"port":[3],"name":"FrontLeft","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"false","fwd":"forward","rev":"reverse","gear":"ratio18_1","id":"partner"},"triportSourcePort":22},{"port":[11],"name":"BottomIntake","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"false","fwd":"forward","rev":"reverse","gear":"ratio18_1","id":"partner"},"triportSourcePort":22},{"port":[13],"name":"TopPole","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"true","fwd":"forward","rev":"reverse","gear":"ratio18_1"},"triportSourcePort":22},{"port":[12],"name":"TopIntake","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"false","fwd":"forward","rev":"reverse","gear":"ratio18_1","id":"partner"},"triportSourcePort":22},{"port":[14],"name":"MiddlePole","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"false","fwd":"forward","rev":"reverse","gear":"ratio18_1","id":"partner"},"triportSourcePort":22},{"port":[20],"name":"Vision20","customName":false,"deviceType":"Vision","deviceClass":"vision","setting":{"config":"{\"config\":{\"brightness\":50,\"signatures\":[{\"name\":\"BLUECUBE\",\"parameters\":{\"uMin\":-4369,\"uMax\":-2803,\"uMean\":-3586,\"vMin\":6593,\"vMax\":8843,\"vMean\":7718,\"rgb\":1648711,\"type\":0,\"name\":\"BLUECUBE\"},\"range\":2.5},{\"name\":\"REDCUBE\",\"parameters\":{\"uMin\":11239,\"uMax\":13065,\"uMean\":12152,\"vMin\":-1663,\"vMax\":-429,\"vMean\":-1046,\"rgb\":5184794,\"type\":0,\"name\":\"REDCUBE\"},\"range\":2.5},{\"name\":\"SIG_3\",\"parameters\":{\"uMin\":0,\"uMax\":0,\"uMean\":0,\"vMin\":0,\"vMax\":0,\"vMean\":0,\"rgb\":0,\"type\":0,\"name\":\"SIG_3\"},\"range\":2.5},{\"name\":\"SIG_4\",\"parameters\":{\"uMin\":0,\"uMax\":0,\"uMean\":0,\"vMin\":0,\"vMax\":0,\"vMean\":0,\"rgb\":0,\"type\":0,\"name\":\"SIG_4\"},\"range\":2.5},{\"name\":\"SIG_5\",\"parameters\":{\"uMin\":0,\"uMax\":0,\"uMean\":0,\"vMin\":0,\"vMax\":0,\"vMean\":0,\"rgb\":0,\"type\":0,\"name\":\"SIG_5\"},\"range\":2.5},{\"name\":\"SIG_6\",\"parameters\":{\"uMin\":0,\"uMax\":0,\"uMean\":0,\"vMin\":0,\"vMax\":0,\"vMean\":0,\"rgb\":0,\"type\":0,\"name\":\"SIG_6\"},\"range\":2.5},{\"name\":\"SIG_7\",\"parameters\":{\"uMin\":0,\"uMax\":0,\"uMean\":0,\"vMin\":0,\"vMax\":0,\"vMean\":0,\"rgb\":0,\"type\":0,\"name\":\"SIG_7\"},\"range\":2.5}],\"codes\":[]}}","isConfigured":"false"},"triportSourcePort":22},{"port":[5],"name":"Shaker","customName":true,"deviceType":"Motor","deviceClass":"motor","setting":{"reversed":"false","fwd":"forward","rev":"reverse","gear":"ratio36_1"},"triportSourcePort":22}],"slot":0,"platform":"V5","sdkVersion":"20240802.15.00.00","appVersion":"4.61.0","minVersion":"4.60.0","fileFormat":"2.0.0","targetBrainGen":"First","v5Sounds":[{"name":"game over","url":"static/sounds/mixkit-arcade-retro-game-over-213.wav"}],"v5SoundsEnabled":false,"aiVisionSettings":{"colors":[],"codes":[],"tags":true,"AIObjects":true,"AIObjectModel":[],"aiModelDropDownValue":null},"target":"Physical"}
+#pragma region VEXcode Generated Robot Configuration
+// Make sure all required headers are included.
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <math.h>
+#include <string.h>
+
+
+#include "vex.h"
+
+using namespace vex;
+
+// Brain should be defined by default
+brain Brain;
+
+
+// START V5 MACROS
+#define waitUntil(condition)                                                   \
+  do {                                                                         \
+    wait(5, msec);                                                             \
+  } while (!(condition))
+
+#define repeat(iterations)                                                     \
+  for (int iterator = 0; iterator < iterations; iterator++)
+// END V5 MACROS
+
+
+// Robot configuration code.
+controller Controller1 = controller(primary);
+motor BackLeft = motor(PORT4, ratio18_1, false);
+
+motor BackRight = motor(PORT1, ratio18_1, true);
+
+motor FrontRight = motor(PORT2, ratio18_1, true);
+
+motor FrontLeft = motor(PORT3, ratio18_1, false);
+
+motor BottomIntake = motor(PORT11, ratio18_1, false);
+
+motor TopPole = motor(PORT13, ratio18_1, true);
+
+motor TopIntake = motor(PORT12, ratio18_1, false);
+
+motor MiddlePole = motor(PORT14, ratio18_1, false);
+
+/*vex-vision-config:begin*/
+vision::signature Vision20__BLUECUBE = vision::signature (1, -4369, -2803, -3586,6593, 8843, 7718,2.5, 0);
+vision::signature Vision20__REDCUBE = vision::signature (2, 11239, 13065, 12152,-1663, -429, -1046,2.5, 0);
+vision Vision20 = vision (PORT20, 50, Vision20__BLUECUBE, Vision20__REDCUBE);
+/*vex-vision-config:end*/
+motor Shaker = motor(PORT5, ratio36_1, false);
+
+
+
+// generating and setting random seed
+void initializeRandomSeed(){
+  int systemTime = Brain.Timer.systemHighResolution();
+  double batteryCurrent = Brain.Battery.current();
+  double batteryVoltage = Brain.Battery.voltage(voltageUnits::mV);
+
+  // Combine these values into a single integer
+  int seed = int(batteryVoltage + batteryCurrent * 100) + systemTime;
+
+  // Set the seed
+  srand(seed);
+}
+
+
+
+void vexcodeInit() {
+
+  //Initializing random seed.
+  initializeRandomSeed(); 
+}
+
+
+// Helper to make playing sounds from the V5 in VEXcode easier and
+// keeps the code cleaner by making it clear what is happening.
+void playVexcodeSound(const char *soundName) {
+  printf("VEXPlaySound:%s\n", soundName);
+  wait(5, msec);
+}
+
+
+
+// define variable for remote controller enable/disable
+bool RemoteControlCodeEnabled = true;
+
+#pragma endregion VEXcode Generated Robot Configuration
+
+// ----------------------------------------------------------------------------
+//                                                                            
+//    Project:                                               
+//    Author:
+//    Created:
+//    Configuration:        
+//                                                                            
+// ----------------------------------------------------------------------------
+
+// Include the V5 Library
+#include "vex.h"
+
+// Allows for easier use of the VEX Library
+using namespace vex;
+
+// Begin project code
+
+bool aboveLine(double x, double y, double px1, double py1, double px2, double py2) {
+  return (py2 - py1) * (x - px1) / (px2 - px1) + py1 <= y;
+}
+
+void drawStar() {
+  double pi = 3.1415926535;
+  double xVals[5] = {cos(pi / 10.0), 0, cos(pi - pi / 10.0), cos(pi + 3 * pi / 10), cos(2 * pi - 3 * pi / 10)};
+  double yVals[5] = {sin(pi / 10.0), 1, sin(pi - pi / 10.0), sin(pi + 3 * pi / 10), sin(2 * pi - 3 * pi / 10)};
+
+  for(int x = 0; x < 239; x++) {
+    double mappedX = (x * 2.0 / 239.0 - 1) * -1;
+    for(int y = 10; y < 249; y++) {
+      double mappedY = ((y-10) * 2.0 / 239.0 - 1) * -1;
+
+      if(mappedY > yVals[0]) {
+        if(!aboveLine(mappedX, mappedY, xVals[1], yVals[1], xVals[3], yVals[3]) && !aboveLine(mappedX, mappedY, xVals[1], yVals[1], xVals[4], yVals[4])) {
+          Brain.Screen.drawPixel(x, y);
+        }
+      } else if(aboveLine(mappedX, mappedY, xVals[2], yVals[2], xVals[4], yVals[4])) {
+        if(aboveLine(mappedX, mappedY, xVals[0], yVals[0], xVals[3], yVals[3])) {
+          Brain.Screen.drawPixel(x, y);
+        } else if(!aboveLine(mappedX, mappedY, xVals[1], yVals[1], xVals[4], yVals[4])) {
+          Brain.Screen.drawPixel(x, y);
+        }
+      } else if(aboveLine(mappedX, mappedY, xVals[0], yVals[0], xVals[3], yVals[3]) && !aboveLine(mappedX, mappedY, xVals[1], yVals[1], xVals[3], yVals[3])) {
+        Brain.Screen.drawPixel(x, y);
+      }
+    }
+  }
+}
+
+void drawTexanFlag() {
+  Brain.Screen.clearScreen();
+  Brain.Screen.setFillColor(blue);
+  Brain.Screen.drawRectangle(0, 0, 239, 239);
+  Brain.Screen.setFillColor(white);
+  Brain.Screen.drawRectangle(239, 0, 239, 239 / 2);
+  Brain.Screen.setFillColor(red);
+  Brain.Screen.drawRectangle(239, 239 / 2, 239, 239);
+  
+  Brain.Screen.setFillColor(white);
+  drawStar();
+}
+
+double biState = 0;
+double tpState = 0;
+double tiState = 0;
+double mpState = 0;
+double counter = 0;
+double armCounter = 0;
+
+bool isIntaking = false;
+bool isOutaking = false;
+bool isRedAlliance = true;
+bool isRightSide = true;
+bool isShakerSet = false;
+
+void setAlliance() {
+  int brainWidth = 480;
+  int brainHeight = 240;
+  Brain.Screen.clearScreen();
+  Brain.Screen.setFillColor(red);
+  Brain.Screen.drawRectangle(0, 0, brainWidth / 2, brainHeight);
+  Brain.Screen.setFillColor(blue);
+  Brain.Screen.drawRectangle(brainWidth / 2, 0, brainWidth / 2, brainHeight);
+  while (!Brain.Screen.pressing()) {
+    wait(0.1, seconds);
+  }
+  while (Brain.Screen.pressing()) {
+    wait(0.1, seconds);
+  }
+  if(Brain.Screen.xPosition() < brainWidth / 2) {
+    isRedAlliance = true;
+  } else {
+    isRedAlliance = false;
+  }
+  Brain.Screen.clearScreen();
+
+  Brain.Screen.setFillColor(orange);
+  Brain.Screen.drawRectangle(0, 0, brainWidth / 2, brainHeight);
+  Brain.Screen.setFillColor(yellow);
+  Brain.Screen.drawRectangle(brainWidth / 2, 0, brainWidth / 2, brainHeight);
+  while (!Brain.Screen.pressing()) {
+    wait(0.1, seconds);
+  }
+  if(Brain.Screen.xPosition() > brainWidth / 2) {
+    isRightSide = true;
+  } else {
+    isRightSide = false;
+  }
+
+  if(isRedAlliance) {
+    Brain.Screen.setFillColor(red);
+  } else {
+    Brain.Screen.setFillColor(blue);
+  }
+  Brain.Screen.drawRectangle(0, 0, brainWidth, brainHeight);
+  Brain.Screen.setCursor(1, 1);
+  Brain.Screen.print(isRightSide ? "Right Auton" : "Left Auton");
+}
+
+void intakeStop() {
+  isIntaking = false;
+  isOutaking = false;
+  biState = 0;
+  tpState = 0;
+  tiState = 0;
+  mpState = 0;
+}
+
+void intakeScoreTop() {
+  isIntaking = false;
+  isOutaking = true;
+  biState = 1;
+  tpState = 1;
+  tiState = 1;
+  mpState = 1;
+}
+
+void spinToScoreMiddle() {
+  biState = 1;
+  tpState = 0.5;
+  tiState = -1;
+  mpState = 0;
+}
+
+void intakeScoreMiddle() {
+  isOutaking = true;
+  isIntaking = false;
+  spinToScoreMiddle();
+  mpState = 1;
+}
+
+void intakeStore() {
+  isIntaking = true;
+  isOutaking = false;
+  biState = 1;
+  tpState = -1;
+  tiState = 1;
+  mpState = 0;
+}
+
+void intakeUnstore() {
+  isIntaking = false;
+  isOutaking = true;
+  biState = -1;
+  tpState = -1;
+  tiState = -1;
+  mpState = 1;
+}
+
+void setShaker() {
+  Shaker.setMaxTorque(1, percent);
+  Shaker.spin(forward, 10, volt);
+  wait(1, seconds);
+  Shaker.setPosition(45, degrees);
+  Shaker.spinToPosition(0, degrees, false);
+  Shaker.setMaxTorque(100, percent);
+  isShakerSet = true;
+}
+
+void updateMovementMotors() {
+  FrontRight.spin(forward, (Controller1.Axis3.position() - Controller1.Axis1.position()) / 90.0 * 12, volt);
+  BackRight.spin(forward, (Controller1.Axis3.position() - Controller1.Axis1.position()) / 90.0 * 12, volt);
+  FrontLeft.spin(forward, (Controller1.Axis3.position() + Controller1.Axis1.position()) / 90.0 * 12, volt);
+  BackLeft.spin(forward, (Controller1.Axis3.position() + Controller1.Axis1.position()) / 90.0 * 12, volt);
+}
+
+bool doesSeeFriendlyCube() {
+  vision::signature friendlyCube = (isRedAlliance ? Vision20__REDCUBE : Vision20__BLUECUBE);
+  Vision20.takeSnapshot(friendlyCube);
+  return Vision20.objects[0].exists;
+}
+
+bool doesSeeEnemyCube() {
+  vision::signature hostileCube = (isRedAlliance ? Vision20__BLUECUBE : Vision20__REDCUBE);
+  Vision20.takeSnapshot(hostileCube);
+  return Vision20.objects[0].exists;
+}
+
+void updateColorFilter() {
+  if(!isIntaking) { return; }
+
+  if(doesSeeEnemyCube() && counter > 2) {
+    spinToScoreMiddle();
+  } else if(doesSeeFriendlyCube()) {
+    counter = 0;
+    intakeStore();
+  }
+
+  counter++;
+}
+
+
+
+void updateShakerArm() {
+  if(isOutaking) {
+    int pos = armCounter > 10 ? -45 : 45;
+    Shaker.spinToPosition(pos, degrees, false);
+  } else if(Shaker.isDone()) {
+    Shaker.spinToPosition(50, degrees, false);
+  }
+  if(armCounter > 20) {
+    armCounter = 0;
+  }
+  armCounter++;
+}
+
+void updateIntakeMotors() {
+  updateColorFilter();
+  BottomIntake.spin(forward, 10 * biState, volt);
+  TopPole.spin(forward, 11 * tpState, volt);
+  TopIntake.spin(forward, 5.5 * tiState, volt);
+  MiddlePole.spin(forward, 5.5 * mpState, volt);
+
+  updateShakerArm();
+}
+
+void driveForeward(double squares) {
+  double constant = 24 / (4 * 3.1415926535);
+  BackRight.spinFor(forward, squares * constant, turns, false);
+  FrontRight.spinFor(forward, squares * constant, turns, false);
+  BackLeft.spinFor(forward, squares * constant, turns, false);
+  FrontLeft.spinFor(forward, squares * constant, turns);
+  // wait(0.1, seconds);
+}
+
+void turnRight(double degree) {
+  BackRight.setPosition(0, degrees);
+  FrontRight.setPosition(0, degrees);
+  BackLeft.setPosition(0, degrees);
+  FrontLeft.setPosition(0, degrees);
+  // double constant = sqrt(4.5 * 4.5 + 11.75 * 11.75) / 4.0 / 180.0 * 2 / 3;
+  double d = sqrt(4.5 * 4.5 + 11.75 * 11.75);
+  double constant = d / 4.0 / 360.0 / 3 * 4;
+  BackRight.spinFor(reverse, degree * constant, turns, false);
+  FrontRight.spinFor(reverse, degree * constant, turns, false);
+  BackLeft.spinFor(forward, degree * constant, turns, false);
+  FrontLeft.spinFor(forward, degree * constant, turns);
+  // wait(0.1, seconds);
+}
+
+void turnLeft(double degree) {
+  turnRight(-degree);
+}
+
+void setVelocities(double per) {
+  BackLeft.setVelocity(per, percent);
+  BackRight.setVelocity(per, percent);
+  FrontRight.setVelocity(per, percent);
+  FrontLeft.setVelocity(per, percent);
+}
+
+void setStoppingTo(vex::brakeType b) {
+  BackLeft.setStopping(b);
+  BackRight.setStopping(b);
+  FrontRight.setStopping(b);
+  FrontLeft.setStopping(b);
+}
+
+void rightAutonomous() {
+  setVelocities(80);
+  setStoppingTo(hold);
+  intakeStore();
+  updateIntakeMotors();
+  // turnLeft(3);
+  driveForeward(0.5);
+  turnRight(80);
+  driveForeward(0.3);
+  turnLeft(90 * 4 / 3 + 30);
+  setVelocities(40);
+  driveForeward(1);
+  // driveForeward(0.6);
+  wait(0.5, seconds);
+  driveForeward(-0.25);
+  turnLeft(60);
+  driveForeward(0.75);
+  intakeUnstore();
+  for(int i = 0; i < 100; i++) {
+    updateIntakeMotors();
+    wait(0.05, seconds);
+  }
+  intakeStop();
+  updateIntakeMotors();
+  driveForeward(-0.5);
+  
+
+  // turnRight(-90);
+  // driveForeward(0.6);
+  // driveForeward(-0.6);
+  // turnRight(90);
+}
+void leftAutonomous() {
+  setVelocities(80);
+  setStoppingTo(hold);
+  // turnLeft(2);
+  intakeStore();
+  driveForeward(1);
+  turnLeft(55);
+  updateIntakeMotors();
+  setVelocities(20);
+  driveForeward(0.76);
+  
+  wait(0.5, seconds);
+  turnRight(72);
+  driveForeward(0.7);
+  intakeScoreMiddle();
+  for(int i = 0; i < 100; i++) {
+    updateIntakeMotors();
+    wait(0.05, seconds);
+  }
+  intakeStop();
+  updateIntakeMotors();
+  driveForeward(-0.5);
+}
+
+void autonomous() {
+  setShaker();
+  drawTexanFlag();
+  if(isRightSide) {
+    rightAutonomous();
+  } else {
+    leftAutonomous();
+  }
+
+}
+
+void userControl() {
+  if(!isShakerSet) {
+    setShaker();
+  }
+  // place driver control in this while loop
+  while (true) {
+    updateMovementMotors();
+    updateIntakeMotors();
+    wait(20, msec);
+  }
+}
+
+void turnRightTester() {
+  turnRight(90);
+}
+
+void preAutonomous() {
+  // actions to do when the program starts
+  Controller1.ButtonX.pressed(intakeStop);
+  Controller1.ButtonR1.pressed(intakeScoreTop);
+  Controller1.ButtonR2.pressed(intakeScoreMiddle);
+  Controller1.ButtonL1.pressed(intakeStore);
+  Controller1.ButtonL2.pressed(intakeUnstore);
+  Controller1.ButtonA.pressed(turnRightTester);
+  setAlliance();
+  
+  wait(1, seconds);
+}
+
+int main() {
+  // Initializing Robot Configuration. DO NOT REMOVE!
+  vexcodeInit();
+  // create competition instance
+  competition Competition;
+
+  // Set up callbacks for autonomous and driver control periods.
+  Competition.autonomous(autonomous);
+  Competition.drivercontrol(userControl);
+
+  // Run the pre-autonomous function.
+  preAutonomous();
+
+  // Prevent main from exiting with an infinite loop.
+  while (true) {
+    wait(100, msec);
+  }
+}
